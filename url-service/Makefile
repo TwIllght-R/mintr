@@ -1,22 +1,29 @@
-up :
-	@echo "==========Starting up the application=========="
-	docker-compose -f docker-compose.yml up -d --build --remove-orphans
-down :
-	@echo "==========Stopping the application=========="
-	docker-compose -f docker-compose.yml down --remove-orphans
+APP_NAME = url-service
+IMAGE_NAME = $(APP_NAME)-dev
+DOCKER_DEV_FILE = Dockerfile.dev
+CONTAINER_NAME = $(APP_NAME)-dev-container
+PORT = 8080
 
-build :
-	@echo "==========Building the application=========="
-	docker build -t url-service .
-	@echo "==========Application built=========="
-run:
-	@echo "==========Running the application=========="
-	docker run -p 8080:8080 --name url-container url-service
-	@echo "==========Application is running=========="	
-stop :
-	@echo "==========Stopping the application=========="
-	docker stop url-container
-	@echo "==========Application stopped=========="
+dev-build:
+	docker build -f $(DOCKER_DEV_FILE) -t $(IMAGE_NAME) .
+dev-up:
+	docker run --rm -it \
+		--name $(CONTAINER_NAME) \
+		-p $(PORT):$(PORT) \
+		-v $$PWD:/app \
+		-w /app \
+		$(IMAGE_NAME)
+
+dev-shell:
+	docker run -it \
+		--name $(CONTAINER_NAME) \
+		-p $(PORT):$(PORT) \
+		-v $$PWD:/app \
+		-w /app \
+		$(IMAGE_NAME) sh
+
+dev-clean:
+	docker rmi $(IMAGE_NAME) || true
 test : 
 	@echo "==========Running tests=========="
 	go test -coverprofile=coverage.out ./...
@@ -24,3 +31,5 @@ test-html :
 	@echo "==========Generating test coverage report=========="
 	go tool cover -html=coverage.out -o coverage.html
 
+lint:
+	golangci-lint run
