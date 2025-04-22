@@ -6,19 +6,19 @@ import (
 	"redirect-service/domain/interfaces"
 )
 
-type redirectURLUsecase struct {
+type redirectURLUseCase struct {
 	redirectURLRepo  interfaces.RedirectURLRepository
 	redirectURLCache interfaces.RedirectURLCache
 }
 
-func NewRedirectURLUsecase(repo interfaces.RedirectURLRepository, cache interfaces.RedirectURLCache) interfaces.RedirectURLUsecase {
-	return &redirectURLUsecase{
+func NewRedirectURLUseCase(repo interfaces.RedirectURLRepository, cache interfaces.RedirectURLCache) interfaces.RedirectURLUsecase {
+	return &redirectURLUseCase{
 		redirectURLRepo:  repo,
 		redirectURLCache: cache,
 	}
 }
 
-func (u *redirectURLUsecase) Redirect(ctx context.Context, in entities.RedirectURL) (*string, error) {
+func (u *redirectURLUseCase) Redirect(ctx context.Context, in entities.RedirectURL) (*string, error) {
 	cachedURL, err := u.redirectURLCache.Get(ctx, in.ShortCode)
 	if err == nil {
 		return cachedURL, nil
