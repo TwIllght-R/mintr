@@ -35,8 +35,8 @@ func main() {
 	_healthCheckHandler.NewHealthCheckHandler(ginEngine)
 
 	redirectURLRepository := _redirectURLPostgresDB.NewRedirectURLRepository(config.PostgresDB)
-	redirecCache := _redirectURLCache.NewRedirectURLCache(config.RedisDB)
-	redirectURLUseCase := _redirectURLUseCase.NewRedirectURLUsecase(redirectURLRepository, redirecCache)
+	redirectCache := _redirectURLCache.NewRedirectURLCache(config.RedisDB)
+	redirectURLUseCase := _redirectURLUseCase.NewRedirectURLUsecase(redirectURLRepository, redirectCache)
 	_redirectURLHandler.NewRedirectURLHandler(ginEngine, redirectURLUseCase)
 
 	srv := &http.Server{
