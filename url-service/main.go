@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 	"url-service/config"
+	_healthCheckHandler "url-service/internal/healthcheck/http"
 	"url-service/internal/middleware"
 	_urlMappingHandler "url-service/internal/url-mapping/delivery/http/handler"
 	_urlMappingPostgresDB "url-service/internal/url-mapping/repository/postgresdb"
@@ -28,6 +29,9 @@ func main() {
 		middleware.RequestID(),
 		middleware.CORS(),
 	)
+
+	//health check
+	_healthCheckHandler.NewHealthCheckHandler(ginEngine)
 
 	urlMappingRepository := _urlMappingPostgresDB.NewURLMappingRepo(config.PostgresDB)
 	urlMappingUseCase := _urlMappingUseCase.NewURLMappingUseCase(urlMappingRepository)
