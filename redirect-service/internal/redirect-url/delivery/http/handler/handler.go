@@ -17,9 +17,7 @@ func NewRedirectURLHandler(g *gin.Engine, redirectURLUsecase interfaces.Redirect
 		redirectURLUsecase: redirectURLUsecase,
 	}
 
-	v1 := g.Group("/v1")
-
-	v1.GET("/:short-code", handler.RedirectURL)
+	g.GET("/:short-code", handler.RedirectURL)
 
 }
 
