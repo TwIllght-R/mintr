@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"url-service/domain/entities"
 	"url-service/domain/interfaces"
 	"url-service/domain/pagination"
@@ -12,44 +11,42 @@ import (
 	"gorm.io/gorm"
 )
 
-type urlMappingRepo struct {
+type urlMappingRepository struct {
 	db *gorm.DB
 }
 
-func NewURLMappingRepo(db *gorm.DB) interfaces.URLMappingRepository {
-	return &urlMappingRepo{db: db}
+func NewURLMappingRepository(db *gorm.DB) interfaces.URLMappingRepository {
+	return &urlMappingRepository{db: db}
 }
 
-func (r *urlMappingRepo) Store(ctx context.Context, in entities.URLMapping) error {
-	err := r.db.Create(&in).Error
+func (r *urlMappingRepository) Store(ctx context.Context, in entities.URLMapping) error {
+	err := r.db.Table("url_mappings").Create(&in).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
 			return entities.ErrURLAlreadyExists
 		}
-		log.Println("Error storing URL mapping:", err)
-		return entities.ErrInternalServer
+		return fmt.Errorf("error storing URL mapping: %w", err)
 	}
 	return nil
 }
 
-func (r *urlMappingRepo) GetByUUID(ctx context.Context, uuid string) (*entities.URLMapping, error) {
+func (r *urlMappingRepository) GetByUUID(ctx context.Context, uuid, ownerUUID string) (*entities.URLMapping, error) {
 	var urlMapping entities.URLMapping
-	err := r.db.Where("uuid = ?", uuid).First(&urlMapping).Error
+	err := r.db.Table("url_mappings").Where("uuid = ? AND owner_uuid = ?", uuid, ownerUUID).First(&urlMapping).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, entities.ErrURLNotFound
 		}
-		log.Println("Error fetching URL mapping:", err)
-		return nil, entities.ErrInternalServer
+
+		return nil, fmt.Errorf("error fetching URL mapping: %w", err)
 	}
 	return &urlMapping, nil
 }
 
-func (r *urlMappingRepo) Delete(ctx context.Context, uuid string) error {
-	result := r.db.Where("uuid = ?", uuid).Delete(&entities.URLMapping{})
+func (r *urlMappingRepository) Delete(ctx context.Context, uuid, ownerUUID string) error {
+	result := r.db.Table("url_mappings").Where("uuid = ? AND owner_uuid = ?", uuid, ownerUUID).Delete(&entities.URLMapping{})
 	if result.Error != nil {
-		log.Println("Error deleting URL mapping:", result.Error)
-		return entities.ErrInternalServer
+		return fmt.Errorf("error deleting URL mapping: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
 		return entities.ErrURLNotFound
@@ -57,14 +54,13 @@ func (r *urlMappingRepo) Delete(ctx context.Context, uuid string) error {
 	return nil
 }
 
-func (r *urlMappingRepo) Update(ctx context.Context, uuid string, in entities.URLMapping) error {
-	result := r.db.Model(&entities.URLMapping{}).Where("uuid = ?", uuid).Updates(in)
+func (r *urlMappingRepository) Update(ctx context.Context, uuid, ownerUUID string, in entities.URLMapping) error {
+	result := r.db.Table("url_mappings").Where("uuid = ? AND owner_uuid = ?", uuid, ownerUUID).Updates(in)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrDuplicatedKey) {
 			return entities.ErrURLAlreadyExists
 		}
-		log.Println("Error updating URL mapping:", result.Error)
-		return entities.ErrInternalServer
+		return fmt.Errorf("error updating URL mapping: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
 		return entities.ErrURLNotFound
@@ -72,29 +68,27 @@ func (r *urlMappingRepo) Update(ctx context.Context, uuid string, in entities.UR
 	return nil
 }
 
-func (r *urlMappingRepo) GetAll(ctx context.Context, in pagination.Pagination) ([]entities.URLMapping, int64, error) {
+func (r *urlMappingRepository) GetAll(ctx context.Context, ownerUUID string, in pagination.Pagination) ([]entities.URLMapping, int64, error) {
 	var urlMappings []entities.URLMapping
 	var total int64
 
-	err := r.db.Model(&entities.URLMapping{}).Count(&total).Error
+	err := r.db.Table("url_mappings").Where("owner_uuid = ?", ownerUUID).Model(&entities.URLMapping{}).Count(&total).Error
 	if err != nil {
-		log.Println("Error counting URL mappings:", err)
-		return nil, 0, entities.ErrInternalServer
+		return nil, 0, fmt.Errorf("error counting URL mappings: %w", err)
 	}
 
-	err = r.db.Order(fmt.Sprintf("%s %s", in.SortBy, in.Sort)).Offset((in.Page - 1) * in.PageSize).Limit(in.PageSize).Find(&urlMappings).Error
+	err = r.db.Table("url_mappings").Where("owner_uuid = ?", ownerUUID).Order(fmt.Sprintf("%s %s", in.SortBy, in.Sort)).Offset((in.Page - 1) * in.PageSize).Limit(in.PageSize).Find(&urlMappings).Error
 	if err != nil {
-		log.Println("Error fetching URL mappings:", err)
-		return nil, 0, entities.ErrInternalServer
+		return nil, 0, fmt.Errorf("error fetching URL mappings: %w", err)
 	}
 	return urlMappings, total, nil
 }
 
-func (r *urlMappingRepo) Fetch(ctx context.Context, in pagination.CursorPagination) ([]entities.URLMapping, *string, error) {
+func (r *urlMappingRepository) Fetch(ctx context.Context, ownerUUID string, in pagination.CursorPagination) ([]entities.URLMapping, *string, error) {
 	var urlMappings []entities.URLMapping
 	var nextCursor *string
 
-	query := r.db.Model(&entities.URLMapping{}).Limit(in.Limit)
+	query := r.db.Table("url_mappings").Where("owner_uuid = ?", ownerUUID).Model(&entities.URLMapping{}).Limit(in.Limit)
 
 	if in.Cursor != nil {
 		query = query.Where("uuid > ?", *in.Cursor)
@@ -102,8 +96,7 @@ func (r *urlMappingRepo) Fetch(ctx context.Context, in pagination.CursorPaginati
 
 	err := query.Find(&urlMappings).Error
 	if err != nil {
-		log.Println("Error fetching URL mappings:", err)
-		return nil, nil, entities.ErrInternalServer
+		return nil, nil, fmt.Errorf("error fetching URL mappings: %w", err)
 	}
 
 	if len(urlMappings) > 0 {

@@ -5,6 +5,7 @@ import (
 	"url-service/domain/entities"
 	"url-service/domain/interfaces"
 
+	"url-service/internal/middleware"
 	"url-service/internal/url-mapping/delivery/http/dto"
 
 	"github.com/gin-gonic/gin"
@@ -12,20 +13,25 @@ import (
 
 type urlMappingHandler struct {
 	urlMappingUseCase interfaces.URLMappingUseCase
+	jwtSecret         []byte
 }
 
-func NewURLMappingHandler(g *gin.Engine, urlMappingUseCase interfaces.URLMappingUseCase) {
+func NewURLMappingHandler(g *gin.Engine, jwtSecret []byte, urlMappingUseCase interfaces.URLMappingUseCase) {
 	handler := &urlMappingHandler{
+		jwtSecret:         jwtSecret,
 		urlMappingUseCase: urlMappingUseCase,
 	}
 
 	v1 := g.Group("/v1")
 
-	v1.POST("/short-codes", handler.GenerateShortCode)
-	v1.GET("/mapping-urls", handler.GetAllURLMapping)
-	v1.GET("/mapping-urls/:uuid", handler.GetURLMappingByUUID)
-	v1.PATCH("/mapping-urls/:uuid", handler.UpdateURLMapping)
-	v1.DELETE("/mapping-urls/:uuid", handler.DeleteURLMapping)
+	url := v1.Group("/url", middleware.JWTAuth(jwtSecret))
+
+	url.Use(middleware.Authorize([]string{"url:read", "url:write"}))
+	url.POST("", handler.GenerateShortCode)
+	url.GET("", handler.GetAllURLMapping)
+	url.GET("/:uuid", handler.GetURLMappingByUUID)
+	url.PATCH("/:uuid", handler.UpdateURLMapping)
+	url.DELETE("/:uuid", handler.DeleteURLMapping)
 
 }
 
@@ -49,14 +55,15 @@ func (h *urlMappingHandler) GenerateShortCode(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
 		return
 	}
-	resp, err := h.urlMappingUseCase.GenerateShortCode(c.Request.Context(), req.ToEntity())
+
+	resp, err := h.urlMappingUseCase.GenerateShortCode(c.Request.Context(), c.GetString("sub"), req.ToEntity())
 	if err != nil {
 		c.JSON(mapStatusCode(err), gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusAccepted, gin.H{
-		"data":    dto.ToResponse(*resp),
+		"data":    dto.ToURLMappingResponse(*resp),
 		"message": "success",
 	})
 }
@@ -68,7 +75,7 @@ func (h *urlMappingHandler) GetAllURLMapping(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
 		return
 	}
-	resp, err := h.urlMappingUseCase.GetAllURLMapping(c.Request.Context(), req.ToEntity())
+	resp, err := h.urlMappingUseCase.GetAllURLMapping(c.Request.Context(), c.GetString("sub"), req.ToEntity())
 	if err != nil {
 		c.JSON(mapStatusCode(err), gin.H{"error": err.Error()})
 		return
@@ -86,14 +93,14 @@ func (h *urlMappingHandler) GetURLMappingByUUID(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "uuid is required"})
 		return
 	}
-	resp, err := h.urlMappingUseCase.GetURLMappingByUUID(c.Request.Context(), uuid)
+	resp, err := h.urlMappingUseCase.GetURLMappingByUUID(c.Request.Context(), uuid, c.GetString("sub"))
 	if err != nil {
 		c.JSON(mapStatusCode(err), gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"data":    dto.ToResponse(*resp),
+		"data":    dto.ToURLMappingResponse(*resp),
 		"message": "success",
 	})
 
@@ -111,7 +118,7 @@ func (h *urlMappingHandler) UpdateURLMapping(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
 		return
 	}
-	err := h.urlMappingUseCase.UpdateURLMapping(c.Request.Context(), uuid, req.ToEntity())
+	err := h.urlMappingUseCase.UpdateURLMapping(c.Request.Context(), uuid, c.GetString("sub"), req.ToEntity())
 	if err != nil {
 		c.JSON(mapStatusCode(err), gin.H{"error": err.Error()})
 		return
@@ -128,7 +135,7 @@ func (h *urlMappingHandler) DeleteURLMapping(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "uuid is required"})
 		return
 	}
-	err := h.urlMappingUseCase.DeleteURLMapping(c.Request.Context(), uuid)
+	err := h.urlMappingUseCase.DeleteURLMapping(c.Request.Context(), uuid, c.GetString("sub"))
 	if err != nil {
 		c.JSON(mapStatusCode(err), gin.H{"error": err.Error()})
 		return
