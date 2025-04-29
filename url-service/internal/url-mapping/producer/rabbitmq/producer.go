@@ -69,7 +69,7 @@ func (p *urlMappingEventProducer) ProduceURLMappingDeletedEvent(ctx context.Cont
 	return nil
 }
 
-func (p *urlMappingEventProducer) ProduceURLMapingUpdatedEvent(ctx context.Context, in events.URLUpdatedEvent) error {
+func (p *urlMappingEventProducer) ProduceURLMappingUpdatedEvent(ctx context.Context, in events.URLUpdatedEvent) error {
 	payload, err := json.Marshal(in)
 	if err != nil {
 		return err
