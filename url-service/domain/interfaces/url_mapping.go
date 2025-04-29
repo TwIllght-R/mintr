@@ -27,5 +27,5 @@ type URLMappingRepository interface {
 type URLMappingEventProducer interface {
 	ProduceURLMappingCreatedEvent(ctx context.Context, in events.URLCreatedEvent) error
 	ProduceURLMappingDeletedEvent(ctx context.Context, in events.URLDeletedEvent) error
-	ProduceURLMapingUpdatedEvent(ctx context.Context, in events.URLUpdatedEvent) error
+	ProduceURLMappingUpdatedEvent(ctx context.Context, in events.URLUpdatedEvent) error
 }
