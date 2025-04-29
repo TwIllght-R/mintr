@@ -9,6 +9,7 @@ import (
 	_healthCheckHandler "url-service/internal/healthcheck/http"
 	"url-service/internal/middleware"
 	_urlMappingHandler "url-service/internal/url-mapping/delivery/http/handler"
+	_urlMappingRabbitMQ "url-service/internal/url-mapping/producer/rabbitmq"
 	_urlMappingPostgresDB "url-service/internal/url-mapping/repository/postgresdb"
 	_urlMappingUseCase "url-service/internal/url-mapping/usecase"
 
@@ -33,9 +34,10 @@ func main() {
 	//health check
 	_healthCheckHandler.NewHealthCheckHandler(ginEngine)
 
-	urlMappingRepository := _urlMappingPostgresDB.NewURLMappingRepo(config.PostgresDB)
-	urlMappingUseCase := _urlMappingUseCase.NewURLMappingUseCase(urlMappingRepository)
-	_urlMappingHandler.NewURLMappingHandler(ginEngine, urlMappingUseCase)
+	urlMappingRepository := _urlMappingPostgresDB.NewURLMappingRepository(config.PostgresDB)
+	urlMappingProducer := _urlMappingRabbitMQ.NewURLMappingEventProducer(config.Rabbitmq, config.RedirectExchange, config.URLCreatedRoutingKey, config.URLUpdatedRoutingKey, config.URLDeletedRoutingKey)
+	urlMappingUseCase := _urlMappingUseCase.NewURLMappingUseCase(urlMappingRepository, urlMappingProducer)
+	_urlMappingHandler.NewURLMappingHandler(ginEngine, config.JWTSecret, urlMappingUseCase)
 
 	srv := &http.Server{
 		Addr:           fmt.Sprintf(":%s", config.Port),

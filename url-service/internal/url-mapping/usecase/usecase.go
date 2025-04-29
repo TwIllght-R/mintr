@@ -1,27 +1,33 @@
 package usecase
 
 import (
-	"url-service/domain/entities"
-	"url-service/domain/interfaces"
-	"url-service/domain/pagination"
 	"context"
 	"crypto/rand"
+	"errors"
 	"log"
 	"math/big"
 	"time"
+	"url-service/domain/entities"
+	"url-service/domain/events"
+	"url-service/domain/interfaces"
+	"url-service/domain/pagination"
 
 	"github.com/google/uuid"
 )
 
 type URLMappingUseCase struct {
-	urlMappingRepo interfaces.URLMappingRepository
+	urlMappingRepo     interfaces.URLMappingRepository
+	urlMappingProducer interfaces.URLMappingEventProducer
 }
 
-func NewURLMappingUseCase(urlMappingRepo interfaces.URLMappingRepository) interfaces.URLMappingUseCase {
-	return &URLMappingUseCase{urlMappingRepo: urlMappingRepo}
+func NewURLMappingUseCase(urlMappingRepo interfaces.URLMappingRepository, urlMappingProducer interfaces.URLMappingEventProducer) interfaces.URLMappingUseCase {
+	return &URLMappingUseCase{
+		urlMappingRepo:     urlMappingRepo,
+		urlMappingProducer: urlMappingProducer,
+	}
 }
 
-func (u *URLMappingUseCase) GenerateShortCode(ctx context.Context, in entities.URLMapping) (*entities.URLMapping, error) {
+func (u *URLMappingUseCase) GenerateShortCode(ctx context.Context, ownerUUID string, in entities.URLMapping) (*entities.URLMapping, error) {
 	// Generate a unique short code
 	shortCode, err := generateShortCode()
 	if err != nil {
@@ -29,20 +35,42 @@ func (u *URLMappingUseCase) GenerateShortCode(ctx context.Context, in entities.U
 		return nil, entities.ErrInternalServer
 	}
 
-	
 	urlMapping := entities.URLMapping{
 		UUID:        uuid.New().String(),
+		OwnerUUID:   ownerUUID,
 		ShortCode:   shortCode,
 		OriginalURL: in.OriginalURL,
 		Title:       in.Title,
+		UTMSource:   in.UTMSource,
+		UTMMedium:   in.UTMMedium,
+		UTMCampaign: in.UTMCampaign,
+		UTMTerm:     in.UTMTerm,
+		UTMContent:  in.UTMContent,
+		ExpiresAt:   in.ExpiresAt,
 		CreatedAt:   time.Now().UTC(),
 		UpdatedAt:   time.Now().UTC(),
 	}
 
-	
 	err = u.urlMappingRepo.Store(ctx, urlMapping)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, entities.ErrURLAlreadyExists) {
+			return nil, entities.ErrURLAlreadyExists
+		}
+		log.Println(err)
+		return nil, entities.ErrInternalServer
+	}
+
+	if err = u.urlMappingProducer.ProduceURLMappingCreatedEvent(ctx, events.URLCreatedEvent{
+		ShortCode:   urlMapping.ShortCode,
+		OriginalURL: urlMapping.OriginalURL,
+		UTMSource:   urlMapping.UTMSource,
+		UTMMedium:   urlMapping.UTMMedium,
+		UTMCampaign: urlMapping.UTMCampaign,
+		UTMTerm:     urlMapping.UTMTerm,
+		UTMContent:  urlMapping.UTMContent,
+		ExpiresAt:   urlMapping.ExpiresAt,
+	}); err != nil {
+		log.Println("Error producing URL mapping created event:", err)
 	}
 
 	return &urlMapping, nil
@@ -67,11 +95,19 @@ func generateShortCode() (string, error) {
 	return string(result), nil
 }
 
-func (u *URLMappingUseCase) GetURLMappingByUUID(ctx context.Context, uuid string) (*entities.URLMapping, error) {
-	return u.urlMappingRepo.GetByUUID(ctx, uuid)
+func (u *URLMappingUseCase) GetURLMappingByUUID(ctx context.Context, uuid, ownerUUID string) (*entities.URLMapping, error) {
+	url, err := u.urlMappingRepo.GetByUUID(ctx, uuid, ownerUUID)
+	if err != nil {
+		if errors.Is(err, entities.ErrURLNotFound) {
+			return nil, entities.ErrURLNotFound
+		}
+		log.Println(err)
+		return nil, entities.ErrInternalServer
+	}
+	return url, nil
 }
 
-func (u *URLMappingUseCase) GetAllURLMapping(ctx context.Context, in pagination.Pagination) (*pagination.PaginatedResponse[entities.URLMapping], error) {
+func (u *URLMappingUseCase) GetAllURLMapping(ctx context.Context, ownerUUID string, in pagination.Pagination) (*pagination.PaginatedResponse[entities.URLMapping], error) {
 	var urlMappings []entities.URLMapping
 	var total int64
 	var allowedSortBy = map[string]bool{
@@ -101,13 +137,12 @@ func (u *URLMappingUseCase) GetAllURLMapping(ctx context.Context, in pagination.
 
 	in.SortBy = sortBy
 
-	
-	urlMappings, total, err := u.urlMappingRepo.GetAll(ctx, in)
+	urlMappings, total, err := u.urlMappingRepo.GetAll(ctx, ownerUUID, in)
 	if err != nil {
-		return nil, err
+		log.Println(err)
+		return nil, entities.ErrInternalServer
 	}
 
-	
 	paginatedResponse := pagination.PaginatedResponse[entities.URLMapping]{
 		Items:    urlMappings,
 		Total:    total,
@@ -120,10 +155,47 @@ func (u *URLMappingUseCase) GetAllURLMapping(ctx context.Context, in pagination.
 	return &paginatedResponse, nil
 }
 
-func (u *URLMappingUseCase) DeleteURLMapping(ctx context.Context, uuid string) error {
-	return u.urlMappingRepo.Delete(ctx, uuid)
+func (u *URLMappingUseCase) DeleteURLMapping(ctx context.Context, uuid, ownerUUID string) error {
+	err := u.urlMappingRepo.Delete(ctx, uuid, ownerUUID)
+	if err != nil {
+		if errors.Is(err, entities.ErrURLNotFound) {
+			return entities.ErrURLNotFound
+		}
+		log.Println(err)
+		return entities.ErrInternalServer
+	}
+
+	if err = u.urlMappingProducer.ProduceURLMappingDeletedEvent(ctx, events.URLDeletedEvent{
+		UUID: uuid,
+	}); err != nil {
+		log.Println("Error producing URL mapping deleted event:", err)
+	}
+
+	return nil
 }
 
-func (u *URLMappingUseCase) UpdateURLMapping(ctx context.Context, uuid string, in entities.URLMapping) error {
-	return u.urlMappingRepo.Update(ctx, uuid, in)
+func (u *URLMappingUseCase) UpdateURLMapping(ctx context.Context, uuid, ownerUUID string, in entities.URLMapping) error {
+	err := u.urlMappingRepo.Update(ctx, uuid, ownerUUID, in)
+	if err != nil {
+		if errors.Is(err, entities.ErrURLNotFound) {
+			return entities.ErrURLNotFound
+		}
+		if errors.Is(err, entities.ErrURLAlreadyExists) {
+			return entities.ErrURLAlreadyExists
+		}
+		log.Println(err)
+		return entities.ErrInternalServer
+	}
+	if err = u.urlMappingProducer.ProduceURLMapingUpdatedEvent(ctx, events.URLUpdatedEvent{
+		UUID:        uuid,
+		OriginalURL: in.OriginalURL,
+		UTMSource:   in.UTMSource,
+		UTMMedium:   in.UTMMedium,
+		UTMCampaign: in.UTMCampaign,
+		UTMTerm:     in.UTMTerm,
+		UTMContent:  in.UTMContent,
+	}); err != nil {
+		log.Println("Error producing URL mapping updated event:", err)
+	}
+	return nil
 }
