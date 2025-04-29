@@ -186,7 +186,7 @@ func (u *URLMappingUseCase) UpdateURLMapping(ctx context.Context, uuid, ownerUUI
 		log.Println(err)
 		return entities.ErrInternalServer
 	}
-	if err = u.urlMappingProducer.ProduceURLMapingUpdatedEvent(ctx, events.URLUpdatedEvent{
+	if err = u.urlMappingProducer.ProduceURLMappingUpdatedEvent(ctx, events.URLUpdatedEvent{
 		UUID:        uuid,
 		OriginalURL: in.OriginalURL,
 		UTMSource:   in.UTMSource,
