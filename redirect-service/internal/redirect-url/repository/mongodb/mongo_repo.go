@@ -58,12 +58,12 @@ func (r *redirectURLRepository) Update(ctx context.Context, uuid string, in enti
 	update := map[string]interface{}{
 		"$set": in,
 	}
-	_, err := r.collection.UpdateOne(ctx, filter, update)
+	result, err := r.collection.UpdateOne(ctx, filter, update)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return nil, entities.ErrURLNotFound
-		}
 		return nil, fmt.Errorf("failed to update document: %v", err)
+	}
+	if result.UpsertedCount == 0 {
+		return nil, entities.ErrURLNotFound
 	}
 	return &in, nil
 }
