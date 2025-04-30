@@ -37,7 +37,7 @@ func mapStatusCode(err error) int {
 func (h *redirectURLHandler) RedirectURL(c *gin.Context) {
 	shortCode := c.Param("short-code")
 
-	originalURL, err := h.redirectURLUsecase.Redirect(c.Request.Context(), entities.RedirectURL{
+	originalURL, err := h.redirectURLUsecase.Redirect(c.Request.Context(), entities.URLVisit{
 		ShortCode: shortCode,
 		UserAgent: c.Request.UserAgent(),
 		IP:        c.ClientIP(),

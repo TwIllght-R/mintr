@@ -6,14 +6,21 @@ import (
 )
 
 type RedirectURLUsecase interface {
-	Redirect(ctx context.Context, in entities.RedirectURL) (*string, error)
+	Redirect(ctx context.Context, in entities.URLVisit) (*string, error)
+	CreateRedirectURL(ctx context.Context, in entities.RedirectURL) (*entities.RedirectURL, error)
+	UpdateRedirectURL(ctx context.Context, uuid string, in entities.RedirectURL) (*entities.RedirectURL, error)
+	DeleteRedirectURL(ctx context.Context, uuid string) error
 }
 
 type RedirectURLCache interface {
-	Cache(ctx context.Context, shortCode, originalURL string) error
-	Get(ctx context.Context, key string) (*string, error)
+	StoreMappingURL(ctx context.Context, shortCode, originalURLWithUTM string) error
+	GetMappingURL(ctx context.Context, shortCode string) (*string, error)
 }
 
 type RedirectURLRepository interface {
+	Store(ctx context.Context, in entities.RedirectURL) (*entities.RedirectURL, error)
 	GetByShortCode(ctx context.Context, shortCode string) (*entities.RedirectURL, error)
+	GetByUUID(ctx context.Context, uuid string) (*entities.RedirectURL, error)
+	Update(ctx context.Context, uuid string, in entities.RedirectURL) (*entities.RedirectURL, error)
+	Delete(ctx context.Context, uuid string) error
 }
