@@ -70,12 +70,12 @@ func (r *redirectURLRepository) Update(ctx context.Context, uuid string, in enti
 
 func (r *redirectURLRepository) Delete(ctx context.Context, uuid string) error {
 	filter := map[string]interface{}{"uuid": uuid}
-	_, err := r.collection.DeleteOne(ctx, filter)
+	result, err := r.collection.DeleteOne(ctx, filter)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return entities.ErrURLNotFound
-		}
 		return fmt.Errorf("failed to delete document: %v", err)
+	}
+	if result.DeletedCount == 0 {
+		return entities.ErrURLNotFound
 	}
 	return nil
 }
