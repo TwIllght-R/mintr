@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"redirect-service/domain/entities"
 	"redirect-service/domain/interfaces"
+	"regexp"
 
 	"github.com/gin-gonic/gin"
 )
@@ -37,6 +38,11 @@ func mapStatusCode(err error) int {
 func (h *redirectURLHandler) RedirectURL(c *gin.Context) {
 	shortCode := c.Param("short-code")
 
+	if !isValidShortCode(shortCode) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid short code"})
+		return
+	}
+
 	originalURL, err := h.redirectURLUsecase.Redirect(c.Request.Context(), entities.URLVisit{
 		ShortCode: shortCode,
 		UserAgent: c.Request.UserAgent(),
@@ -48,4 +54,9 @@ func (h *redirectURLHandler) RedirectURL(c *gin.Context) {
 	}
 
 	c.Redirect(302, *originalURL)
+}
+
+func isValidShortCode(shortCode string) bool {
+	re := regexp.MustCompile(`^[a-zA-Z0-9]{1,10}$`)
+	return re.MatchString(shortCode)
 }
