@@ -101,7 +101,7 @@ func New() (*Config, error) {
 		return nil, fmt.Errorf("failed to ping MongoDB: %v", err)
 	}
 
-	// //Load Redis config
+	// Load Redis config
 	rdbConfig := RedisConfig{
 		Host:     viper.GetString("REDIS_HOST"),
 		Port:     viper.GetString("REDIS_PORT"),
