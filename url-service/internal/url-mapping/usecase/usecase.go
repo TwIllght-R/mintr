@@ -61,6 +61,7 @@ func (u *URLMappingUseCase) GenerateShortCode(ctx context.Context, ownerUUID str
 	}
 
 	if err = u.urlMappingProducer.ProduceURLMappingCreatedEvent(ctx, events.URLCreatedEvent{
+		UUID:        urlMapping.UUID,
 		ShortCode:   urlMapping.ShortCode,
 		OriginalURL: urlMapping.OriginalURL,
 		UTMSource:   urlMapping.UTMSource,
@@ -189,6 +190,7 @@ func (u *URLMappingUseCase) UpdateURLMapping(ctx context.Context, uuid, ownerUUI
 	if err = u.urlMappingProducer.ProduceURLMappingUpdatedEvent(ctx, events.URLUpdatedEvent{
 		UUID:        uuid,
 		OriginalURL: in.OriginalURL,
+		ShortCode:   in.ShortCode,
 		UTMSource:   in.UTMSource,
 		UTMMedium:   in.UTMMedium,
 		UTMCampaign: in.UTMCampaign,
