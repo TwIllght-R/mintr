@@ -42,7 +42,7 @@ func mapStatusCode(err error) int {
 func (h *analyticsHandler) GetClickedDetails(c *gin.Context) {
 	urlUUID := c.Param("url-uuid")
 	if urlUUID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "url-uui is required"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "url-uuid is required"})
 		return
 	}
 	resp, err := h.analyticsUseCase.GetClickedDetails(c.Request.Context(), urlUUID, c.GetString("sub"))
