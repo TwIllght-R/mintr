@@ -26,8 +26,8 @@ func (u *analyticsUseCase) RecordClicked(ctx context.Context, in entities.URLCli
 	return nil
 }
 
-func (u *analyticsUseCase) GetClickedDetails(ctx context.Context, urlUUID, ownnerUUID string) ([]entities.URLClicked, error) {
-	urls, err := u.analyticsRepository.GetAllByUrlUUID(ctx, urlUUID, ownnerUUID)
+func (u *analyticsUseCase) GetClickedDetails(ctx context.Context, urlUUID, ownerUUID string) ([]entities.URLClicked, error) {
+	urls, err := u.analyticsRepository.GetAllByUrlUUID(ctx, urlUUID, ownerUUID)
 	if err != nil {
 		log.Println(err)
 		return nil, entities.ErrInternalServer
