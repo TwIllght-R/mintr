@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"redirect-service/domain/entities"
 	"redirect-service/domain/events"
@@ -25,6 +26,7 @@ func (h *urlCreatedEventHandler) HandleEvent(msg []byte) {
 		log.Println("Error unmarshalling event:", err)
 		return
 	}
+	fmt.Println(evt.UUID)
 	_, err := h.redirectUseCase.CreateRedirectURL(context.Background(), entities.RedirectURL{
 		UUID:        evt.UUID,
 		ShortCode:   evt.ShortCode,
